@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset='utf-8' />
+  <title>New Voices in STEM - Map Prototype</title>
+  <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+  <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.52.0/mapbox-gl.js'></script>
+  <link href="https://fonts.googleapis.com/css?family=Roboto:300,500" rel="stylesheet">
+  <script src="https://unpkg.com/deck.gl@^6.2.0-beta.3/deckgl.min.js"></script>
+  <script type='text/javascript' src='./researchers.js'></script>
+  <script type='text/javascript' src='./cities.js'></script>
+  <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.52.0/mapbox-gl.css' rel='stylesheet' />
+  <link href="https://api.mapbox.com/mapbox-assembly/v0.23.1/assembly.min.css" rel="stylesheet">
+  <script async defer src="https://api.mapbox.com/mapbox-assembly/v0.23.1/assembly.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Roboto', sans-serif;
+      background-color: #f2eee8;
+      color: #000000;
+    }
+
+    h2 {
+      font-weight: lighter;
+      margin: 24px 24px 24px 0;
+      font-size: 24px;
+    }
+
+    #wrapper {
+      display: grid;
+      grid-template:
+        "m s" 75%
+        "f s" 25%
+        / 0.7fr 0.3fr;
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #map {
+      grid-area: m;
+    }
+
+    #sidebar {
+      grid-area: s;
+      overflow-y: scroll;
+      padding: 10px;
+    }
+
+    #filters {
+      grid-area: f;
+      padding: 1em;
+      color: #717171;
+      display: grid;
+      grid-gap: 5px;
+      grid-template-areas:
+        "h h h h" 1fr
+        "a b c d" 1fr
+        / 1fr 1fr 1fr 1fr;
+    }
+
+    #filters-header {
+      grid-column: 1 / 5;
+      padding: 10px;
+    }
+
+    #filters-header > h2 {
+      display: inline;
+    }
+
+    .filter-section {
+      overflow: auto;
+    }
+
+    .researcher-info {
+      height: 100px;
+      overflow: hidden;
+      color: black;
+      display: grid;
+      grid-template:
+        "image info" auto
+        "extra extra" 1fr
+        / 80px 1fr;
+      grid-gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .researcher-info:hover {
+      background-color: #e6dfd0;
+    }
+
+    .researcher-info p {
+      margin: 0;
+    }
+
+    .researcher-info--text {
+      font-weight: lighter;
+      font-size: 14px;
+    }
+
+    .researcher-info--img {
+      grid-area: image;
+    }
+
+
+    .researcher-info--info {
+      grid-area: info;
+    }
+
+    .researcher-info p:not(.researcher-info--name) {
+      font-weight: lighter;
+      font-size: 14px;
+    }
+
+    .researcher-info--extra {
+      grid-area: extra;
+      display: grid;
+      grid-template-columns: 100%;
+    }
+
+    .researcher-info--extra-row {
+      padding-top: .5em;
+      display: grid;
+      grid-template-columns: 80px 1fr;
+      grid-gap: 10px;
+      width: 100%
+    }
+
+    .researcher-info--extra-header {
+      font-weight: lighter;
+      text-transform: uppercase;
+      font-size: small;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .active {
+      background-color: #e6dfd0;
+      height: auto;
+      overflow: auto;
+    }
+
+    .checkbox-container {
+      display: block;
+    }
+
+    .checkbox {
+      display: inline-block;
+    }
+
+    fieldset {
+      padding: 10px;
+      border: .5px solid #e6dfd0;
+    }
+
+    legend {
+      width: auto;
+      text-transform: uppercase;
+    }
+
+    .popup-content .popup-info:not(:first-child) {
+      padding-top: .7em;
+    }
+
+    .popup-info--type {
+      font-size: smaller;
+      font-weight: lighter;
+      text-transform: uppercase;
+    }
+
+  </style>
+</head>
+
+<body>
+
+  <div id='wrapper'>
+    <div id='map'></div>
+    <div id='sidebar'>
+      <h2>MEMBERS</h2>
+      <div id='sidebar-sub'></div>
+    </div>
+    <form id='filters'>
+      <div id='filters-header'>
+        <h2>SEARCH</h2>
+        <button class="btn btn--stroke btn--gray" id='reset' >Reset All</button>
+      </div>
+      <fieldset id="filters-nasem" class="filter-section">
+        <legend>NASEM Sections</legend>
+        <fieldset id="filters-nasem-nas">
+          <legend>National Academy of Sciences</legend>
+          <label class='checkbox-container'>
+            <input type="checkbox" id="filters-nasem-nas-physical" value="NAS - Physical and Mathematical Sciences" checked>
+            <div class='checkbox mr6 checkbox--gray'>
+              <svg class='icon'><use xlink:href='#icon-check' /></svg>
+            </div>
+            Physical and Mathematical Sciences
+          </label>
+          <label class='checkbox-container'>
+            <input type="checkbox" id="filters-nasem-nas-biological" value="NAS - Biological Sciences" checked>
+            <div class='checkbox mr6 checkbox--gray'>
+              <svg class='icon'><use xlink:href='#icon-check' /></svg>
+            </div>
+            Biological Sciences
+          </label>
+          <label class='checkbox-container'>
+            <input type="checkbox" id="filters-nasem-nas-engineering" value="NAS - Engineering and Applied Sciences" checked>
+            <div class='checkbox mr6 checkbox--gray'>
+              <svg class='icon'><use xlink:href='#icon-check' /></svg>
+            </div>
+            Engineering and Applied Sciences
+          </label>
+          <label class='checkbox-container'>
+            <input type="checkbox" id="filters-nasem-nas-biomedical" value="NAS - Biomedical Sciences" checked>
+            <div class='checkbox mr6 checkbox--gray'>
+              <svg class='icon'><use xlink:href='#icon-check' /></svg>
+            </div>
+            Biomedical Sciences
+          </label>
+          <label class='checkbox-container'>
+            <input type="checkbox" id="filters-nasem-nas-behavioral" value="NAS - Behavioral and Social Sciences" checked>
+            <div class='checkbox mr6 checkbox--gray'>
+              <svg class='icon'><use xlink:href='#icon-check' /></svg>
+            </div>
+            Behavioral and Social Sciences
+          </label>
+          <label class='checkbox-container'>
+            <input type="checkbox" id="filters-nasem-nas-applied" value="NAS - Applied Biological, Agricultural, and Environmental Sciences" checked>
+            <div class='checkbox mr6 checkbox--gray'>
+              <svg class='icon'><use xlink:href='#icon-check' /></svg>
+            </div>
+            Applied Biological, Agricultural, and Environmental Sciences
+          </label>
+        </fieldset>
+        <fieldset id="filters-nasem-nae">
+          <legend>National Academy of Engineering</legend>
+          <label class='checkbox-container'>
+            <input type="checkbox" id="filters-nasem-nae-aerospace" value="NAE - Aerospace" checked>
+            <div class='checkbox mr6 checkbox--gray'>
+              <svg class='icon'><use xlink:href='#icon-check' /></svg>
+            </div>
+            Aerospace
+          </label>
+          <label class='checkbox-container'>
+            <input type="checkbox" id="filters-nasem-nae-bioengineering" value="NAE - Bioengineering" checked>
+            <div class='checkbox mr6 checkbox--gray'>
+              <svg class='icon'><use xlink:href='#icon-check' /></svg>
+            </div>
+            Bioengineering
+          </label>
+          <label class='checkbox-container'>
+            <input type="checkbox" id="filters-nasem-nae-chemical" value="NAE - Chemical" checked>
+            <div class='checkbox mr6 checkbox--gray'>
+              <svg class='icon'><use xlink:href='#icon-check' /></svg>
+            </div>
+            Chemical
+          </label>
+          <label class='checkbox-container'>
+            <input type="checkbox" id="filters-nasem-nae-civil" value="NAE - Civil" checked>
+            <div class='checkbox mr6 checkbox--gray'>
+              <svg class='icon'><use xlink:href='#icon-check' /></svg>
+            </div>
+            Civil
+          </label>
+          <label class='checkbox-container'>
+            <input type="checkbox" id="filters-nasem-nae-computer" value="NAE - Computer Science & Engineering" checked>
+            <div class='checkbox mr6 checkbox--gray'>
+              <svg class='icon'><use xlink:href='#icon-check' /></svg>
+            </div>
+            Computer Science & Engineering
+          </label>
+          <label class='checkbox-container'>
+            <input type="checkbox" id="filters-nasem-nae-electric" value="NAE - Electric Power/Energy Systems" checked>
+            <div class='checkbox mr6 checkbox--gray'>
+              <svg class='icon'><use xlink:href='#icon-check' /></svg>
+            </div>
+            Electric Power/Energy Systems
+          </label>
+          <label class='checkbox-container'>
+            <input type="checkbox" id="filters-nasem-nae-electronics" value="NAE - Electronics, Communications & Information Systems" checked>
+            <div class='checkbox mr6 checkbox--gray'>
+              <svg class='icon'><use xlink:href='#icon-check' /></svg>
+            </div>
+            Electronics, Communications & Information Systems
+          </label>
+          <label class='checkbox-container'>
+            <input type="checkbox" id="filters-nasem-nae-industrial" value="NAE - Industrial, Manufacturing & Operational Systems" checked>
+            <div class='checkbox mr6 checkbox--gray'>
+              <svg class='icon'><use xlink:href='#icon-check' /></svg>
+            </div>
+            Industrial, Manufacturing & Operational Systems
+          </label>
+          <label class='checkbox-container'>
+            <input type="checkbox" id="filters-nasem-nae-materials" value="NAE - Materials" checked>
+            <div class='checkbox mr6 checkbox--gray'>
+              <svg class='icon'><use xlink:href='#icon-check' /></svg>
+            </div>
+            Materials
+          </label>
+          <label class='checkbox-container'>
+            <input type="checkbox" id="filters-nasem-nae-mechanical" value="NAE - Mechanical" checked>
+            <div class='checkbox mr6 checkbox--gray'>
+              <svg class='icon'><use xlink:href='#icon-check' /></svg>
+            </div>
+            Mechanical
+          </label>
+          <label class='checkbox-container'>
+            <input type="checkbox" id="filters-nasem-nae-earth" value="NAE - Earth Resources" checked>
+            <div class='checkbox mr6 checkbox--gray'>
+              <svg class='icon'><use xlink:href='#icon-check' /></svg>
+            </div>
+            Earth Resources
+          </label>
+          <label class='checkbox-container'>
+            <input type="checkbox" id="filters-nasem-nae-special" value="NAE - Special Fields & Interdisciplinary" checked>
+            <div class='checkbox mr6 checkbox--gray'>
+              <svg class='icon'><use xlink:href='#icon-check' /></svg>
+            </div>
+            Special Fields & Interdisciplinary
+          </label>
+        </fieldset>
+        <fieldset id="filters-nasem-nam">
+          <legend>National Academy of Medicine</legend>
+          <label class='checkbox-container'>
+            <input type="checkbox" id="filters-nasem-nam-clinician" value="NAM - Clinician well-being and resilience" checked>
+            <div class='checkbox mr6 checkbox--gray'>
+              <svg class='icon'><use xlink:href='#icon-check' /></svg>
+            </div>
+            Clinician well-being and resilience
+          </label>
+          <label class='checkbox-container'>
+            <input type="checkbox" id="filters-nasem-nam-opioid" value="NAM - Opioid epidemic" checked>
+            <div class='checkbox mr6 checkbox--gray'>
+              <svg class='icon'><use xlink:href='#icon-check' /></svg>
+            </div>
+            Opioid epidemic
+          </label>
+          <label class='checkbox-container'>
+            <input type="checkbox" id="filters-nasem-nam-culture" value="NAM - Culture of health" checked>
+            <div class='checkbox mr6 checkbox--gray'>
+              <svg class='icon'><use xlink:href='#icon-check' /></svg>
+            </div>
+            Culture of health
+          </label>
+          <label class='checkbox-container'>
+            <input type="checkbox" id="filters-nasem-nam-global" value="NAM - Global health risk framework" checked>
+            <div class='checkbox mr6 checkbox--gray'>
+              <svg class='icon'><use xlink:href='#icon-check' /></svg>
+            </div>
+            Global health risk framework
+          </label>
+          <label class='checkbox-container'>
+            <input type="checkbox" id="filters-nasem-nam-longevity" value="NAM - Longevity" checked>
+            <div class='checkbox mr6 checkbox--gray'>
+              <svg class='icon'><use xlink:href='#icon-check' /></svg>
+            </div>
+            Longevity
+          </label>
+          <label class='checkbox-container'>
+            <input type="checkbox" id="filters-nasem-nam-human" value="NAM - Human gene editing" checked>
+            <div class='checkbox mr6 checkbox--gray'>
+              <svg class='icon'><use xlink:href='#icon-check' /></svg>
+            </div>
+            Human gene editing
+          </label>
+        </fieldset>
+        <label class='checkbox-container'>
+          <input type="checkbox" id="filters-nasem-other" value="Other field(s) not represented here" checked>
+          <div class='checkbox mr6 checkbox--gray'>
+            <svg class='icon'><use xlink:href='#icon-check' /></svg>
+          </div>
+          Other
+        </label>
+      </fieldset>
+      <fieldset id='filters-gender' class="filter-section">
+        <legend>Gender</legend>
+        <label class='checkbox-container'>
+          <input type="checkbox" id="filters-gender-female" value="female" checked>
+          <div class='checkbox mr6 checkbox--gray'>
+            <svg class='icon'><use xlink:href='#icon-check' /></svg>
+          </div>
+          Female
+        </label>
+        <label class='checkbox-container'>
+          <input type="checkbox" id="filters-gender-male" value="male" checked>
+          <div class='checkbox mr6 checkbox--gray'>
+            <svg class='icon'><use xlink:href='#icon-check' /></svg>
+          </div>
+          Male
+        </label>
+      </fieldset>
+      <fieldset id="filters-gradyear" class="filter-section">
+        <legend>Graduation Year</legend>
+        <label class="checkbox-container">
+          <input type="checkbox" id="filters-gradyear-2015" value="2015" checked>
+          <div class='checkbox mr6 checkbox--gray'>
+            <svg class='icon'><use xlink:href='#icon-check' /></svg>
+          </div>
+          2015
+        </label>
+        <label class="checkbox-container">
+          <input type="checkbox" id="filters-gradyear-2014" value="2014" checked>
+          <div class='checkbox mr6 checkbox--gray'>
+            <svg class='icon'><use xlink:href='#icon-check' /></svg>
+          </div>
+          2014
+        </label>
+        <label class="checkbox-container">
+          <input type="checkbox" id="filters-gradyear-2013" value="2013" checked>
+          <div class='checkbox mr6 checkbox--gray'>
+            <svg class='icon'><use xlink:href='#icon-check' /></svg>
+          </div>
+          2013
+        </label>
+        <label class="checkbox-container">
+          <input type="checkbox" id="filters-gradyear-2012" value="2012" checked>
+          <div class='checkbox mr6 checkbox--gray'>
+            <svg class='icon'><use xlink:href='#icon-check' /></svg>
+          </div>
+          2012
+        </label>
+        <label class="checkbox-container">
+          <input type="checkbox" id="filters-gradyear-2011" value="2011" checked>
+          <div class='checkbox mr6 checkbox--gray'>
+            <svg class='icon'><use xlink:href='#icon-check' /></svg>
+          </div>
+          2011
+        </label>
+        <label class="checkbox-container">
+          <input type="checkbox" id="filters-gradyear-2010" value="2010" checked>
+          <div class='checkbox mr6 checkbox--gray'>
+            <svg class='icon'><use xlink:href='#icon-check' /></svg>
+          </div>
+          2010
+        </label>
+        <label class="checkbox-container">
+          <input type="checkbox" id="filters-gradyear-2009" value="2009" checked>
+          <div class='checkbox mr6 checkbox--gray'>
+            <svg class='icon'><use xlink:href='#icon-check' /></svg>
+          </div>
+          2009
+        </label>
+        <label class="checkbox-container">
+          <input type="checkbox" id="filters-gradyear-2008" value="2008" checked>
+          <div class='checkbox mr6 checkbox--gray'>
+            <svg class='icon'><use xlink:href='#icon-check' /></svg>
+          </div>
+          2008
+        </label>
+        <label class="checkbox-container">
+          <input type="checkbox" id="filters-gradyear-2007" value="2007" checked>
+          <div class='checkbox mr6 checkbox--gray'>
+            <svg class='icon'><use xlink:href='#icon-check' /></svg>
+          </div>
+          2007
+        </label>
+        <label class="checkbox-container">
+          <input type="checkbox" id="filters-gradyear-2006" value="2006" checked>
+          <div class='checkbox mr6 checkbox--gray'>
+            <svg class='icon'><use xlink:href='#icon-check' /></svg>
+          </div>
+          2006
+        </label>
+        <label class="checkbox-container">
+          <input type="checkbox" id="filters-gradyear-2005" value="2005" checked>
+          <div class='checkbox mr6 checkbox--gray'>
+            <svg class='icon'><use xlink:href='#icon-check' /></svg>
+          </div>
+          2005
+        </label>
+        <label class="checkbox-container">
+          <input type="checkbox" id="filters-gradyear-2004" value="2004" checked>
+          <div class='checkbox mr6 checkbox--gray'>
+            <svg class='icon'><use xlink:href='#icon-check' /></svg>
+          </div>
+          2004
+        </label>
+        <label class="checkbox-container">
+          <input type="checkbox" id="filters-gradyear-2003" value="2003" checked>
+          <div class='checkbox mr6 checkbox--gray'>
+            <svg class='icon'><use xlink:href='#icon-check' /></svg>
+          </div>
+          2003
+        </label>
+        <label class="checkbox-container">
+          <input type="checkbox" id="filters-gradyear-2002" value="2002" checked>
+          <div class='checkbox mr6 checkbox--gray'>
+            <svg class='icon'><use xlink:href='#icon-check' /></svg>
+          </div>
+          2002
+        </label>
+        <label class="checkbox-container">
+          <input type="checkbox" id="filters-gradyear-2001" value="2001" checked>
+          <div class='checkbox mr6 checkbox--gray'>
+            <svg class='icon'><use xlink:href='#icon-check' /></svg>
+          </div>
+          2001
+        </label>
+        <label class="checkbox-container">
+          <input type="checkbox" id="filters-gradyear-2000" value="2000" checked>
+          <div class='checkbox mr6 checkbox--gray'>
+            <svg class='icon'><use xlink:href='#icon-check' /></svg>
+          </div>
+          2000
+        </label>
+      </fieldset>
+      <fieldset id="filters-interests" class="filter-section">
+        <legend>SEM Interests</legend>
+        <label class="checkbox-container">
+          <input type="checkbox" id="filters-interests-diversity" value="Diversity & Inclusion" checked>
+          <div class='checkbox mr6 checkbox--gray'>
+            <svg class='icon'><use xlink:href='#icon-check' /></svg>
+          </div>
+          Diversity & Inclusion
+        </label>
+        <label class="checkbox-container">
+          <input type="checkbox" id="filters-interests-communication" value="Communication" checked>
+          <div class='checkbox mr6 checkbox--gray'>
+            <svg class='icon'><use xlink:href='#icon-check' /></svg>
+          </div>
+          Communication
+        </label>
+        <label class="checkbox-container">
+          <input type="checkbox" id="filters-interests-policy" value="Policy" checked>
+          <div class='checkbox mr6 checkbox--gray'>
+            <svg class='icon'><use xlink:href='#icon-check' /></svg>
+          </div>
+          Policy
+        </label>
+        <label class="checkbox-container">
+          <input type="checkbox" id="filters-interests-education" value="Education" checked>
+          <div class='checkbox mr6 checkbox--gray'>
+            <svg class='icon'><use xlink:href='#icon-check' /></svg>
+          </div>
+          Education
+        </label>
+        <label class="checkbox-container">
+          <input type="checkbox" id="filters-interests-international" value="International Engagement" checked>
+          <div class='checkbox mr6 checkbox--gray'>
+            <svg class='icon'><use xlink:href='#icon-check' /></svg>
+          </div>
+          International Engagement
+        </label>
+      </fieldset>
+    </form>
+  </div>
+  <script>
+    //// ACCOUNT & MAP DATA ////
+    // TODO change these values to match the ones for your account & newly-uploaded data
+
+    // Access token copied from https://account.mapbox.com/
+    const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1IjoibmV3dm9pY2VzbmFzZW0iLCJhIjoiY2ptcWpoNWYxMXFtcTNxbnl0d3d6bWNsZCJ9.vnAXiJLlzmZb7b7FvordXQ';
+
+    // "Style URL" for the New Voices map style, copied from https://studio.mapbox.com/ (Click "Menu" next to the style)
+    const STYLE_URL = 'mapbox://styles/newvoicesnasem/cjtbi7em825ed1fpix9811dql';
+
+    // "Map ID" for the "cities" tileset, copied from https://studio.mapbox.com/tilesets/ (Click "Menu" next to the tileset)
+    const CITIES_TILESET_ID = 'mapbox://newvoicesnasem.3c88pta0';
+
+    // Name of the (only) layer in the "cities" tileset, copied from https://studio.mapbox.com/tilesets/<CITIES_TILESET_ID>
+    const CITIES_LAYER_NAME = 'cities-4dwafn';
+
+    ////////////
+
+    // Node & arc colors in [R, G , B]
+    const PRIMARY_COLOR = [26, 153, 194];
+    const SECONDARY_COLOR = [224, 89, 109];
+    const ARC_COLOR = SECONDARY_COLOR;
+
+
+    // Add styled map to the page
+    mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
+    const map = new mapboxgl.Map({
+      container: 'map', // container div id
+      style: STYLE_URL, // stylesheet location
+      center: [-94.22198192607613, 41.0978935830577], // starting position [lng, lat]
+      zoom:  4 // starting zoom
+    });
+
+    // Sort member list pulled in from researchers.js (alpha by last name)
+    researchers = researchers.sort((a,b) => a["Last Name"] > b["Last Name"] ? 1 : -1);
+
+
+    // Utilities to reset Sidebar content
+    const getAllResearcherEls = () => Array.from(document.getElementsByClassName('researcher-info'));
+    const showAllResearchers = () => getAllResearcherEls().map((el) => el.classList.remove('hidden'));
+    const hideAllResearchers = () => getAllResearcherEls().map((el) => el.classList.add('hidden'));
+    const deactivateAllResearchers = () => getAllResearcherEls().map((el) => el.classList.remove('active'));
+
+
+    // Utilities to reset Map content
+    const resetPrimaryFilter = () => {
+      let filter = ['any'];
+      researchers.map(r => {
+        let primaryId = getCityId(r.PRIMARY);
+        filter.push(['==', ['get', 'id'], primaryId])
+      });
+      map.setFilter('primary', filter);
+    };
+
+    const resetSecondaryFilter = () => { if (map.getLayer('secondary')) map.setFilter('secondary', ['==', ['get', 'id'], ''])};
+
+    let resetPopups = () => {}; // Placeholder function, real function to be assigned by renderArcs() below
+    const resetArcs = () => {
+      if (map.getLayer('arcs')) map.removeLayer('arcs');
+      resetPopups();
+    };
+
+    // "Reset All" button handler
+    document.getElementById('reset').addEventListener('click', e => {
+      showAllResearchers();
+      deactivateAllResearchers();
+      resetPrimaryFilter();
+      resetSecondaryFilter();
+      resetArcs();
+    });
+
+
+    // Filter utilities
+    const getCheckedValues = (fieldsetID) => Array.from(document.getElementById(fieldsetID).querySelectorAll('input:checked')).map(el => el.value);
+
+    const filterHandler = (fieldsetID) => {
+      const handler = (e) => {
+        console.log('FILTER', fieldsetID, e.target.value, e.target.checked);
+        applyFilters();
+      };
+      return handler;
+    };
+
+    const applyFilters = () => {
+      deactivateAllResearchers();
+      resetSecondaryFilter();
+      resetArcs();
+      map.setFilter('primary', getPrimaryFilter());
+    };
+
+    const checkFilter = (fieldsetID, filterFunction) => {
+      const checked = getCheckedValues(fieldsetID);
+      return (r) => checked.some(val => filterFunction(r, val));
+    };
+
+    const passesAllFilters = (r) => {
+      const passesNasemFilter = checkFilter('filters-nasem', (r, val) => r["NASEM Sections"].indexOf(val) > -1);
+      const passesGenderFilter = checkFilter('filters-gender', (r, val) => r["Gender"].toLowerCase() === val);
+      const passesGradyearFilter = checkFilter('filters-gradyear', (r, val) => getGradYear(r) === val);
+      const passesInterestsFilter = checkFilter('filters-interests', (r, val) => r["SEM Interests"].indexOf(val) > -1);
+
+      return passesNasemFilter(r) && passesGenderFilter(r) && passesGradyearFilter(r) && passesInterestsFilter(r);
+    };
+
+    // Get the filter object we can pass to the map to display only nodes matching current state of Filters checkboxes
+    const getPrimaryFilter = () => {
+      let primaryFilter = ["any"];
+
+      researchers.map(r => {
+        let rId = getResearcherId(r);
+        let el = document.getElementById(rId);
+        let primaryId = getCityId(r.PRIMARY);
+        if (passesAllFilters(r)) {
+          el.classList.remove('hidden');
+          primaryFilter.push(['==', ['get', 'id'], primaryId]);
+        } else {
+          el.classList.add('hidden');
+        }
+      });
+
+      return primaryFilter;
+    };
+
+
+
+    //// Filter checkbox handlers
+
+    // NASEM Sections
+    const nasemFilterHandler = filterHandler('filters-nasem');
+    for (let id of ['nas', 'nae', 'nam']) {
+      const fieldsetID = `filters-nasem-${id}`;
+      const fields = document.getElementById(fieldsetID).querySelectorAll('input');
+      for (let field of fields) {
+        field.addEventListener('change', nasemFilterHandler);
+      }
+    }
+    document.getElementById(`filters-nasem-other`).addEventListener('change', nasemFilterHandler);
+
+    // Gender
+    for (let id of ['female', 'male']) {
+      document.getElementById(`filters-gender-${id}`).addEventListener('change', filterHandler('filters-gender'));
+    }
+
+    // Graduation Year (2000-2015)
+    for (let id of [...Array(16).keys()].map(i => i + 2000)) {
+      document.getElementById(`filters-gradyear-${id}`).addEventListener('change', filterHandler('filters-gradyear'));
+    }
+
+    // SEM Interests
+    for (let id of ['diversity', 'communication', 'policy', 'education', 'international']) {
+      document.getElementById(`filters-interests-${id}`).addEventListener('change', filterHandler('filters-interests'));
+    }
+
+
+    //// Researcher & City data utilities
+
+    const getResearcherFullName = (r) => `${r['First Name']} ${r['Last Name']}`;
+    const getResearcherId = (r) => getResearcherFullName(r).toLowerCase().replace(/ /g, '-');
+
+    const getGradConnection = (r) => {
+      for (let c of r.CONNECTIONS) {
+        if (c["Connection Type"] === "Graduating Institution") return c;
+      }
+      console.error('No Graduating Institution found for', getResearcherId(r));
+    };
+
+    const getGradYear = (r) => getGradConnection(r)["Year of Graduation"];
+    const getGradInstitution = (r) => getGradConnection(r)["Connection Name"];
+    const getGradField = (r) => getGradConnection(r)["Field"];
+
+    const getCityId = (connObj) => {
+      return [connObj.City, connObj.State, connObj.Country]
+        .map(s => s.toLowerCase())
+        .filter(s => !!s && s !== 'n/a')
+        .join('-')
+        .replace(/,/g, '')
+        .replace(/ /g, '-');
+    };
+
+    const getCityString = (connObj) => {
+      return [connObj.City, connObj.State, connObj.Country]
+        .filter(s => !!s && s !== 'n/a').join(', ').replace('United States', 'USA');
+    };
+
+    const getCityCoords = (cityId) => {
+      const found = cities.features.filter(feature => feature.properties.id === cityId);
+      return found[0].geometry.coordinates;
+    };
+
+
+
+    //// Prepare Researcher sidebar data - including initially hidden data
+    const getResearcherElement = (r) => {
+      const fullName = getResearcherFullName(r);
+      let wrapperDiv = document.createElement('div');
+      let divImg = document.createElement('div');
+      let divInfo = document.createElement('div');
+      let h3 = document.createElement('p');
+      h3.textContent = fullName;
+      h3.classList.add('researcher-info--name');
+      divInfo.append(h3);
+
+      let img = new Image();
+      img.src = `./img/${fullName}.jpg`;
+      divImg.append(img);
+
+      let primaryRole = [r.PRIMARY["Professional Title"], r.PRIMARY["Current Institutional Affiliation"]].join(', ');
+      let location = getCityString(r.PRIMARY);
+      [primaryRole, location].map(txt => {
+        let p = document.createElement('p');
+        p.textContent = txt;
+        p.classList.add('researcher-info--text');
+        divInfo.append(p);
+      });
+
+      const getContactExtra = (r) => {
+        let contact = document.createElement('div');
+        contact.classList.add('researcher-info--extra-row');
+        let h = document.createElement('p');
+        h.textContent = 'Contact';
+        h.classList.add('researcher-info--extra-header');
+        contact.append(h);
+
+        // shorten website URLs for readability
+        let noHttp = r['Website'].replace(/^http(s?):\/\//, '');
+        let shortUrl = noHttp.replace(/^www\./, '').replace(/\/$/, '');
+
+        const tw = r['Twitter Handle'].replace(/^@+/, '');
+        const ig = r['Instagram Username'].replace(/^@+/, '');
+
+        let links = document.createElement('p');
+        links.classList.add('researcher-info--extra-text');
+
+        let linkInfo = [
+          {text: shortUrl, url_prefix: "http://", url_content: noHttp},
+          {text: `Twitter: @${tw}`, url_prefix: "https://twitter.com/", url_content: tw},
+          {text: `Instagram: @${ig}`, url_prefix: "https://instagram.com/", url_content: ig}
+        ];
+        linkInfo.map(({text, url_prefix, url_content}) => {
+          if (!url_content || url_content.toLowerCase().replace('/', '') === 'na') return; // skip blank URLs (ideally these would be cleaned from data beforehand)
+          let linkText = document.createElement('p');
+          let webLink = document.createElement('a');
+          webLink.textContent = text;
+          webLink.setAttribute('href', url_prefix + url_content);
+          webLink.setAttribute('title', url_prefix + url_content);
+          webLink.setAttribute('target', '_blank');
+          linkText.append(webLink);
+          links.append(linkText);
+        });
+
+        contact.append(links);
+        return contact;
+      };
+
+      // Prepare initially-hidden details
+      let extraInfo = document.createElement('div');
+      extraInfo.classList.add('researcher-info--extra');
+
+      extraInfo.append(getContactExtra(r));
+      [
+        ['Graduated', [getGradInstitution(r), getGradYear(r), getGradField(r)].filter(txt => txt).join(', ')],
+        ['NASEM Sections', r["NASEM Sections"]],
+        ['SEM Interests', r["SEM Interests"]]
+      ].map(([section, txt]) => {
+        let extraRow = document.createElement('div');
+        extraRow.classList.add('researcher-info--extra-row');
+        let h = document.createElement('p');
+        h.textContent = section;
+        h.classList.add('researcher-info--extra-header');
+        extraRow.append(h);
+        let p = document.createElement('p');
+        p.textContent = txt;
+        p.classList.add('researcher-info--text');
+        extraRow.append(p);
+        extraInfo.append(extraRow);
+      });
+      wrapperDiv.append(extraInfo);
+
+      divInfo.classList.add('researcher-info--info');
+      divImg.classList.add('researcher-info--img');
+      wrapperDiv.classList.add('researcher-info');
+      wrapperDiv.id = getResearcherId(r);
+      wrapperDiv.append(divImg);
+      wrapperDiv.append(divInfo);
+      return wrapperDiv;
+    };
+
+    // Utility to find the correct bounding box for a given set of points
+    const updateBBox = (oldBBox, newCoords) => {
+      let [[minLon, minLat],[maxLon, maxLat]] = oldBBox;
+      let [newLon, newLat] = newCoords;
+      let newBBox = [[], []];
+      newBBox[0][0] = minLon < newLon ? minLon : newLon;
+      newBBox[0][1] = minLat < newLat ? minLat : newLat;
+      newBBox[1][0] = maxLon > newLon ? maxLon : newLon;
+      newBBox[1][1] = maxLat > newLat ? maxLat : newLat;
+      return newBBox;
+    };
+
+    // Once the Map has finished loading, populate the researcher data
+    map.on('load', () => {
+      const sidebar = document.getElementById('sidebar-sub');
+
+      const primaries = researchers.map((r) => {
+        let researcherName = getResearcherFullName(r);
+        let researcherId = getResearcherId(r);
+        let primaryId = getCityId(r.PRIMARY);
+        let primaryCoords = getCityCoords(primaryId);
+        let el = getResearcherElement(r);
+
+        // Clicking a Researcher in the sidebar displays their connections
+        el.addEventListener('click', function(e) {
+          console.log(`CLICK ${researcherId} (${primaryId})`);
+          let secFilter = ['any']; // filter for secondary map layer (to be updated)
+          let arcs = []; // data used to draw lines between nodes (to be updated)
+          let bbox = [[...primaryCoords], [...primaryCoords]]; // bounding box (to be updated)
+
+          r.CONNECTIONS.map((conn) => {
+            const secondaryId = getCityId(conn);
+            if (!secondaryId) return; // skip blank connections (ideally these would be cleaned from the data beforehand)
+            const secondaryCoords = getCityCoords(secondaryId);
+            secFilter.push(['==', ['get', 'id'], secondaryId]);
+            arcs.push({
+              'source': primaryCoords, // line start point
+              'target': secondaryCoords, // line end point
+              // connection metadata for popups
+              'targetId': secondaryId,
+              'targetCity': getCityString(conn),
+              'connectionType': conn['Connection Type'],
+              'connectionName': conn['Connection Name'],
+            });
+            bbox = updateBBox(bbox, secondaryCoords); // keep the bounding box in sync as we add secondary points
+          });
+
+          map.setFilter('secondary', secFilter); // only display secondary nodes for this Researcher
+          renderArcs(arcs, bbox); // draw the lines between nodes
+          deactivateAllResearchers(); // make sure there are no other "active" Researchers
+          el.classList.add('active'); // mark this Researcher as "active" (highlighted)
+        });
+        r.listElement = el; // store the Researchers' sidebar element in the researcher object, for later reference
+        sidebar.append(el); // add the Researcher to the sidebar
+        return primaryId;
+      });
+
+
+      // Add the locations in 'cities' dataset to the map
+      map.addSource('cities', {
+        type: "vector",
+        url: CITIES_TILESET_ID
+      });
+
+      // Create a layer for primary locations
+      map.addLayer({
+        "id": "primary",
+        "type": "circle",
+        "source": 'cities',
+        "source-layer": CITIES_LAYER_NAME,
+        "paint": {
+          "circle-radius": [
+              // scale the size of each circle based on # of researchers there
+              "step",
+              ["get", "researcher_count"],
+              1,
+              1,
+              5,
+              2,
+              10
+          ],
+          // make circles semi-transparent, with border
+          "circle-color": `rgba(${PRIMARY_COLOR.join(', ')}, 0.7)`,
+          "circle-stroke-color": "white",
+          "circle-stroke-width": 3
+        },
+        filter: getPrimaryFilter() // filter to only primary locations
+      });
+
+      // Create a layer for secondary (connection) locations
+      map.addLayer({
+        "id": "secondary",
+        "type": "circle",
+        "source": "cities",
+        "source-layer": CITIES_LAYER_NAME,
+        "paint": {
+          // make circles constant size, semi-transparent, with border
+          "circle-radius": 5,
+          "circle-color": `rgba(${SECONDARY_COLOR.join(', ')}, 0.7)`,
+          "circle-stroke-color": "white",
+          "circle-stroke-width": 2
+        },
+        filter: ['==', ['get', 'id'], ''] // display no secondary cities initially
+      });
+
+      // Clicking elsewhere resets the map & sidebar
+      map.on('click', (e) => {
+        resetSecondaryFilter();
+        resetArcs();
+        deactivateAllResearchers();
+        applyFilters();
+      });
+
+      // Clicking on a primary node highlights the Researcher(s) there
+      map.on('click', 'primary', (e) => {
+        resetSecondaryFilter();
+        resetArcs();
+        hideAllResearchers();
+        deactivateAllResearchers();
+
+        // filter to only Researchers in this city
+        let researchersHere = researchers.filter((r) => {
+          return getCityId(r.PRIMARY) == e.features[0].properties.id && passesAllFilters(r);
+        });
+
+        // if only 1 Researcher found, simulate a click on their sidebar element to immediately display secondary connections
+        if (researchersHere.length === 1)
+          document.getElementById(getResearcherId(researchersHere[0])).click();
+
+        // unhide only researchers in this city
+        researchersHere.forEach((r) => {
+          let researcherEl = document.getElementById(getResearcherId(r));
+          researcherEl.classList.toggle('hidden');
+        });
+      });
+
+
+      // Prepare popup objects to display when hovering over secondary cities
+      const setSecondaryPopups = (arcs) => {
+        let popup =  new mapboxgl.Popup({closeButton: false});
+
+        const getPopupContent = (features) => {
+          // we expect the user to hover over a single city (but overlaps may be possible)
+          if (features.length === 0) return console.error('Mouseover touched no features.'); // should not be possible, included for good measure
+          if (features.length > 1) console.warn(`Mouseover touched ${features.length} features. Highlighting only the first one. Features:`, features);
+          let cityId = features[0].properties.id;
+
+          // grab arc object(s) for this researcher+city (researchers may have multiple connections to the same city)
+          let arcsToCity = arcs.filter(a => a.targetId === cityId);
+          if (arcsToCity.length === 0) return console.error('No match found for', cityId, arcs); // should not happen
+
+          let popupContent = document.createElement('div');
+          popupContent.classList.add('popup-content');
+
+          // get connection metadata from arc object(s) to populate the popup
+          for (let arc of arcsToCity) {
+            let connInfo = document.createElement('div');
+            connInfo.classList.add('popup-info');
+
+            let connType = document.createElement('p');
+            connType.textContent = arc.connectionType;
+            connType.classList.add('popup-info--type');
+            connInfo.append(connType);
+
+            let connName = document.createElement('p');
+            connName.textContent = arc.connectionName;
+            connName.classList.add('popup-info--name');
+            connInfo.append(connName);
+
+            popupContent.append(connInfo);
+          }
+
+          let connCity = document.createElement('p');
+          connCity.textContent = arcsToCity[0].targetCity;
+          connCity.classList.add('popup-info');
+          connCity.classList.add('popup-info--city');
+          popupContent.append(connCity);
+
+          return popupContent;
+        };
+
+        // Display popup when hover begins
+        const popupOn = (e) => {
+          console.log('HOVER', e.lngLat);
+          popup
+            .setLngLat(e.lngLat)
+            .setDOMContent(getPopupContent(e.features))
+            .addTo(map);
+        };
+        map.on('mouseover', 'secondary', popupOn);
+
+        // Hide popup when hover ends
+        const popupOff = () => popup.remove();
+        map.on('mouseleave', 'secondary', popupOff);
+
+        // Reassign the resetPopups fn so that the next time it's called (by resetArcs) we remove these listeners
+        resetPopups = () => {
+          map.off('mouseover', 'secondary', popupOn);
+          map.off('mouseleave', 'secondary', popupOff);
+        }
+
+        return popup;
+      };
+
+
+      //// Draw connection lines with deck.gl library
+      const { MapboxLayer, ArcLayer, LineLayer } = deck;
+
+      const renderArcs = (researcherArcs, bbox) => {
+        resetArcs(); // hide any previously drawn lines
+
+        // configure a new map layer for the lines
+        const arcsLayer = new MapboxLayer({
+            type: LineLayer, // change to ArcLayer for 3D curved lines
+            id: 'arcs',
+            data: researcherArcs,
+            brushStroke: 100000,
+            getStrokeWidth: 4,
+            getSourcePosition: d => d.source,
+            getTargetPosition: d => d.target,
+            getSourceColor: ARC_COLOR,
+            getTargetColor: ARC_COLOR,
+            getColor: ARC_COLOR
+        });
+
+        // add line data to the map & zoom to the appropriate bounding box
+        map.addLayer(arcsLayer, 'waterway-label');
+        map.fitBounds(bbox, {
+          padding: 50
+        });
+
+        // add popups handlers over secondary cities
+        setSecondaryPopups(researcherArcs);
+      };
+
+    })
+  </script>
+
+</body>
+
+</html>
